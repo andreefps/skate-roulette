@@ -15,9 +15,12 @@ import Animated, {
 
 import { ThemedText } from '@/components/themed-text';
 import { DieFace } from '@/constants/dice';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
-const ITEM_HEIGHT = 80; // Slightly smaller for better density
-const PERSPECTIVE = 600;
+const ITEM_HEIGHT = 80; 
+
 
 interface RouletteSlotProps {
   items: DieFace[];
@@ -29,6 +32,11 @@ interface RouletteSlotProps {
 
 // Re-implementing with the "Render All" approach
 export function RouletteSlot({ items, targetIndex, isSpinning, onSpinStop, index }: RouletteSlotProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const borderColor = Colors[colorScheme].border;
+  
   const scrollY = useSharedValue(0);
   const itemHeight = ITEM_HEIGHT;
   const repeatCount = 12; // Increased to ensure we don't run out of items
@@ -95,10 +103,10 @@ export function RouletteSlot({ items, targetIndex, isSpinning, onSpinStop, index
   const allItems = Array(repeatCount).fill(items).flat();
 
   return (
-    <View style={styles.container}>
-       <View style={styles.gradientTop} pointerEvents="none" />
-       <View style={styles.gradientBottom} pointerEvents="none" />
-       <View style={styles.selectionLine} pointerEvents="none" />
+    <View style={[styles.container, { backgroundColor: colorScheme === 'dark' ? '#000' : '#F0F0F0', borderColor }]}>
+       <View style={[styles.gradientTop, { backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.8)' : 'rgba(240,240,240,0.8)', borderColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} pointerEvents="none" />
+       <View style={[styles.gradientBottom, { backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.8)' : 'rgba(240,240,240,0.8)', borderColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} pointerEvents="none" />
+       <View style={[styles.selectionLine, { borderColor: colorScheme === 'dark' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(184, 134, 11, 0.5)', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 215, 0, 0.05)' : 'rgba(184, 134, 11, 0.05)' }]} pointerEvents="none" />
        
        <View style={styles.scrollContainer}>
          {allItems.map((item, i) => (
@@ -176,8 +184,8 @@ const SlotItem = ({ index, item, scrollY, itemHeight, totalItems }: any) => {
     <Animated.View style={animatedStyle}>
       <ThemedText 
         type="defaultSemiBold" 
-        style={styles.text} 
-        lightColor="#fff" 
+        style={[styles.text, { textShadowColor: 'rgba(0,0,0,0.3)' }]} 
+        lightColor="#1C1C1E" 
         darkColor="#fff"
       >
         {item.label}
@@ -190,19 +198,16 @@ const styles = StyleSheet.create({
   container: {
     height: ITEM_HEIGHT * 3,
     width: '25%',
-    backgroundColor: '#000', // Pure black for contrast
     overflow: 'hidden',
     borderRightWidth: 1,
-    borderColor: '#222',
     alignItems: 'center',
   },
   scrollContainer: {
     width: '100%',
     height: '100%',
-    // We don't need flex here because items are absolute
   },
   text: {
-    fontSize: 18,
+    fontSize: 14,
     textAlign: 'center',
     textTransform: 'uppercase',
     fontWeight: '900',
@@ -219,8 +224,6 @@ const styles = StyleSheet.create({
     height: ITEM_HEIGHT,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.5)', // Gold
-    backgroundColor: 'rgba(255, 215, 0, 0.05)',
     zIndex: 10,
   },
   gradientTop: {
@@ -229,10 +232,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: ITEM_HEIGHT,
-    backgroundColor: 'rgba(0,0,0,0.8)',
     zIndex: 20,
     borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   gradientBottom: {
     position: 'absolute',
@@ -240,10 +241,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: ITEM_HEIGHT,
-    backgroundColor: 'rgba(0,0,0,0.8)',
     zIndex: 20,
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   // Unused but kept for reference
   slotWindow: {},

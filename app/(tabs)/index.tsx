@@ -1,20 +1,47 @@
 import * as Haptics from 'expo-haptics';
-import { Stack } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RouletteSlot } from '@/components/RouletteSlot';
 import { ThemedText } from '@/components/themed-text';
-import { FLATGROUND_SLOTS, LEDGE_SLOTS } from '@/constants/dice';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors } from '@/constants/theme';
+import { useHistory } from '@/contexts/HistoryContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function SkateRouletteScreen() {
+  const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const cardColor = Colors[colorScheme].card;
+  const borderColor = Colors[colorScheme].border;
+  const goldColor = Colors[colorScheme].gold;
+  const accentColor = Colors[colorScheme].accent;
+
+  const { getEnabledSlots, difficulty } = useSettings();
+
   const [gameMode, setGameMode] = useState<'flatground' | 'ledge'>('flatground');
   const [areSlotsSpinning, setAreSlotsSpinning] = useState(false);
   const [isGameActive, setIsGameActive] = useState(false);
   const [results, setResults] = useState<number[]>([0, 0, 0, 0]);
   const [completedSlots, setCompletedSlots] = useState(0);
 
-  const currentSlots = gameMode === 'flatground' ? FLATGROUND_SLOTS : LEDGE_SLOTS;
+  // Get slots based on current settings
+  // We use useMemo to prevent unnecessary re-renders unless difficulty/custom config changes
+  // But getEnabledSlots is a function, so we depend on the context values that trigger re-renders.
+  // Since useSettings() triggers re-render on change, we can just call it.
+  const currentSlots = useMemo(() => getEnabledSlots(gameMode), [gameMode, getEnabledSlots, difficulty]);
+
+  // Reset results when slots configuration changes significantly (e.g. difficulty change)
+  // to avoid out-of-bounds errors if the new slots are shorter (though they shouldn't be shorter in length, just content)
+  useEffect(() => {
+    setResults([0, 0, 0, 0]);
+  }, [difficulty]);
 
   const handleModeToggle = () => {
     if (isGameActive) return;
@@ -42,6 +69,8 @@ export default function SkateRouletteScreen() {
     }, 2500);
   }, [isGameActive]);
 
+  const { addTrick } = useHistory();
+
   const handleSlotStop = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setCompletedSlots(prev => {
@@ -49,20 +78,47 @@ export default function SkateRouletteScreen() {
       if (next === 4) {
         setIsGameActive(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        // Save to history
+        // We need to calculate the text here since state updates are async/batched
+        // But 'results' state is stable since spin start.
+        // Wait, 'results' is state. We can use the helper but we need to be careful about closure.
+        // Actually, we can just reconstruct the text logic here or use a ref.
+        // Or better, use a useEffect to watch 'completedSlots'.
       }
       return next;
     });
   }, []);
 
+  // Effect to save history when game finishes
+  React.useEffect(() => {
+    if (completedSlots === 4 && !isGameActive) {
+      const text = getResultText();
+      // Avoid saving "ROLLING..." or initial state if that happens
+      if (text !== 'ROLLING...' && text !== "SKATER'S CHOICE") {
+         addTrick(text, gameMode);
+      }
+    }
+  }, [completedSlots, isGameActive]);
+
   // Helper to format the result text
   const getResultText = () => {
     if (isGameActive) return 'ROLLING...';
     
+    // Helper for safe access to prevent crashes during mode switch
+    const getSafeValue = (slotIndex: number, resultIndex: number) => {
+      const slot = currentSlots[slotIndex];
+      if (!slot) return '';
+      const item = slot[resultIndex];
+      // Fallback to first item if index is out of bounds (e.g. switching from 10 items to 4 items)
+      return item ? item.value : slot[0]?.value || '';
+    };
+
     if (gameMode === 'flatground') {
-      let stance = currentSlots[0][results[0]].value;
-      const rotation = currentSlots[1][results[1]].value;
-      const degree = currentSlots[2][results[2]].value;
-      const trick = currentSlots[3][results[3]].value;
+      let stance = getSafeValue(0, results[0]);
+      const rotation = getSafeValue(1, results[1]);
+      const degree = getSafeValue(2, results[2]);
+      const trick = getSafeValue(3, results[3]);
 
       if (stance === 'Regular') stance = '';
 
@@ -74,10 +130,10 @@ export default function SkateRouletteScreen() {
       return parts.join(' ').toUpperCase();
     } else {
       // Ledge Mode
-      let stance = currentSlots[0][results[0]].value;
-      const grind = currentSlots[1][results[1]].value;
-      const rotation = currentSlots[2][results[2]].value;
-      const tries = currentSlots[3][results[3]].value;
+      let stance = getSafeValue(0, results[0]);
+      const grind = getSafeValue(1, results[1]);
+      const rotation = getSafeValue(2, results[2]);
+      const tries = getSafeValue(3, results[3]);
 
       if (stance === 'Regular') stance = '';
 
@@ -89,33 +145,38 @@ export default function SkateRouletteScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+      <StatusBar barStyle={colorScheme === 'dark' ? "light-content" : "dark-content"} />
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor }]}>
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>SKATE ROULETTE</ThemedText>
-          <View style={styles.divider} />
+          <View style={styles.headerTop}>
+            <ThemedText type="title" style={[styles.title, { color: textColor }]}>SKATE ROULETTE</ThemedText>
+            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsButton}>
+              <IconSymbol name="gear" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.divider, { backgroundColor: accentColor }]} />
           
-          <View style={styles.modeSwitcher}>
+          <View style={[styles.modeSwitcher, { backgroundColor: cardColor, borderColor }]}>
             <TouchableOpacity 
-              style={[styles.modeButton, gameMode === 'flatground' && styles.modeButtonActive]} 
+              style={[styles.modeButton, gameMode === 'flatground' && { backgroundColor: borderColor }]} 
               onPress={() => gameMode !== 'flatground' && handleModeToggle()}
             >
-              <ThemedText style={[styles.modeText, gameMode === 'flatground' && styles.modeTextActive]}>FLAT</ThemedText>
+              <ThemedText style={[styles.modeText, gameMode === 'flatground' && { color: textColor }]}>FLAT</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.modeButton, gameMode === 'ledge' && styles.modeButtonActive]} 
+              style={[styles.modeButton, gameMode === 'ledge' && { backgroundColor: borderColor }]} 
               onPress={() => gameMode !== 'ledge' && handleModeToggle()}
             >
-              <ThemedText style={[styles.modeText, gameMode === 'ledge' && styles.modeTextActive]}>LEDGE</ThemedText>
+              <ThemedText style={[styles.modeText, gameMode === 'ledge' && { color: textColor }]}>LEDGE</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.machineContainer}>
-          <View style={styles.machineFrame}>
-            <View style={styles.slotsContainer}>
+          <View style={[styles.machineFrame, { backgroundColor: cardColor, borderColor }]}>
+            <View style={[styles.slotsContainer, { backgroundColor: colorScheme === 'dark' ? '#000' : '#F0F0F0', borderColor }]}>
               {currentSlots.map((slot, index) => (
                 <RouletteSlot
                   key={`${gameMode}-${index}`} // Force re-render on mode change
@@ -128,22 +189,22 @@ export default function SkateRouletteScreen() {
               ))}
             </View>
             {/* Decorative screws/bolts */}
-            <View style={[styles.bolt, styles.boltTL]} />
-            <View style={[styles.bolt, styles.boltTR]} />
-            <View style={[styles.bolt, styles.boltBL]} />
-            <View style={[styles.bolt, styles.boltBR]} />
+            <View style={[styles.bolt, styles.boltTL, { borderColor }]} />
+            <View style={[styles.bolt, styles.boltTR, { borderColor }]} />
+            <View style={[styles.bolt, styles.boltBL, { borderColor }]} />
+            <View style={[styles.bolt, styles.boltBR, { borderColor }]} />
           </View>
         </View>
 
-        <View style={styles.resultContainer}>
-          <ThemedText type="subtitle" style={styles.resultText}>
+        <View style={[styles.resultContainer, { borderColor: borderColor, backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}>
+          <ThemedText type="subtitle" style={[styles.resultText, { color: goldColor, textShadowColor: colorScheme === 'dark' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(184, 134, 11, 0.2)' }]}>
             {getResultText()}
           </ThemedText>
         </View>
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.spinButton, isGameActive && styles.spinButtonDisabled]}
+            style={[styles.spinButton, { backgroundColor: accentColor, borderColor: colorScheme === 'dark' ? '#B71C1C' : '#C62828' }, isGameActive && styles.spinButtonDisabled]}
             onPress={handleSpin}
             disabled={isGameActive}
             activeOpacity={0.9}
@@ -163,30 +224,39 @@ export default function SkateRouletteScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#050505',
   },
   container: {
     flex: 1,
     padding: 20,
     justifyContent: 'space-between',
-    backgroundColor: '#050505',
   },
   header: {
     alignItems: 'center',
     marginTop: 10,
+    width: '100%',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    position: 'relative',
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#fff',
     letterSpacing: 4,
     textTransform: 'uppercase',
-    fontFamily: 'System', // Or a custom font if available
+    fontFamily: 'System',
   },
   divider: {
     width: 40,
     height: 2,
-    backgroundColor: '#D32F2F',
     marginVertical: 8,
   },
   subtitle: {
@@ -201,13 +271,11 @@ const styles = StyleSheet.create({
   },
   machineFrame: {
     padding: 10,
-    backgroundColor: '#111',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#333',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 10,
   },
@@ -216,20 +284,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 240, // 3 * 80
     alignItems: 'center',
-    backgroundColor: '#000',
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#222',
   },
   bolt: {
     position: 'absolute',
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#444',
+    backgroundColor: '#999',
     borderWidth: 1,
-    borderColor: '#222',
   },
   boltTL: { top: 6, left: 6 },
   boltTR: { top: 6, right: 6 },
@@ -241,18 +306,14 @@ const styles = StyleSheet.create({
     minHeight: 80,
     justifyContent: 'center',
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
   },
   resultText: {
     textAlign: 'center',
     fontSize: 22,
-    color: '#FFD700',
     fontWeight: '700',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(255, 215, 0, 0.3)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
   },
@@ -264,7 +325,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#D32F2F',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#D32F2F',
@@ -273,7 +333,6 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     elevation: 8,
     borderWidth: 4,
-    borderColor: '#B71C1C',
   },
   spinButtonInner: {
     width: 64,
@@ -285,8 +344,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   spinButtonDisabled: {
-    backgroundColor: '#333',
-    borderColor: '#222',
+    backgroundColor: '#666',
+    borderColor: '#444',
     shadowOpacity: 0,
   },
   spinButtonText: {
@@ -297,11 +356,9 @@ const styles = StyleSheet.create({
   },
   modeSwitcher: {
     flexDirection: 'row',
-    backgroundColor: '#111',
     borderRadius: 20,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#333',
     marginTop: 10,
   },
   modeButton: {
@@ -309,15 +366,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 16,
   },
-  modeButtonActive: {
-    backgroundColor: '#333',
-  },
   modeText: {
     fontSize: 12,
-    color: '#666',
+    color: '#999',
     fontWeight: '700',
-  },
-  modeTextActive: {
-    color: '#fff',
   },
 });
