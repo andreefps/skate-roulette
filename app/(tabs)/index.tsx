@@ -1,98 +1,254 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Stack } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { RouletteSlot } from '@/components/RouletteSlot';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { DICE_SLOTS } from '@/constants/dice';
 
-export default function HomeScreen() {
+export default function SkateRouletteScreen() {
+  const [areSlotsSpinning, setAreSlotsSpinning] = useState(false);
+  const [isGameActive, setIsGameActive] = useState(false);
+  const [results, setResults] = useState<number[]>([0, 0, 0, 0]);
+  const [completedSlots, setCompletedSlots] = useState(0);
+
+  const handleSpin = useCallback(() => {
+    if (isGameActive) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setIsGameActive(true);
+    setAreSlotsSpinning(true);
+    setCompletedSlots(0);
+
+    // Generate random results immediately
+    const newResults = DICE_SLOTS.map(slot => Math.floor(Math.random() * slot.length));
+    setResults(newResults);
+
+    // Stop the spinning after a delay
+    // We increase the delay slightly to enjoy the animation
+    setTimeout(() => {
+      setAreSlotsSpinning(false);
+    }, 2500);
+  }, [isGameActive]);
+
+  const handleSlotStop = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCompletedSlots(prev => {
+      const next = prev + 1;
+      if (next === 4) {
+        setIsGameActive(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      return next;
+    });
+  }, []);
+
+  // Helper to format the result text
+  const getResultText = () => {
+    if (isGameActive) return 'ROLLING...';
+    
+    const stance = DICE_SLOTS[0][results[0]].value;
+    const rotation = DICE_SLOTS[1][results[1]].value;
+    const degree = DICE_SLOTS[2][results[2]].value;
+    const trick = DICE_SLOTS[3][results[3]].value;
+
+    const parts = [stance, rotation, degree, trick].filter(Boolean);
+    if (parts.length === 0) return 'SKATE ROULETTE';
+    return parts.join(' ');
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.title}>SKATE ROULETTE</ThemedText>
+          <View style={styles.divider} />
+          <ThemedText style={styles.subtitle}>EST. 2025</ThemedText>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <View style={styles.machineContainer}>
+          <View style={styles.machineFrame}>
+            <View style={styles.slotsContainer}>
+              {DICE_SLOTS.map((slot, index) => (
+                <RouletteSlot
+                  key={index}
+                  index={index}
+                  items={slot}
+                  targetIndex={results[index]}
+                  isSpinning={areSlotsSpinning}
+                  onSpinStop={handleSlotStop}
+                />
+              ))}
+            </View>
+            {/* Decorative screws/bolts */}
+            <View style={[styles.bolt, styles.boltTL]} />
+            <View style={[styles.bolt, styles.boltTR]} />
+            <View style={[styles.bolt, styles.boltBL]} />
+            <View style={[styles.bolt, styles.boltBR]} />
+          </View>
+        </View>
+
+        <View style={styles.resultContainer}>
+          <ThemedText type="subtitle" style={styles.resultText}>
+            {getResultText()}
+          </ThemedText>
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.spinButton, isGameActive && styles.spinButtonDisabled]}
+            onPress={handleSpin}
+            disabled={isGameActive}
+            activeOpacity={0.9}
+          >
+            <View style={styles.spinButtonInner}>
+              <ThemedText type="defaultSemiBold" style={styles.spinButtonText}>
+                {isGameActive ? '...' : 'SPIN'}
+              </ThemedText>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#050505',
+  },
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'space-between',
+    backgroundColor: '#050505',
+  },
+  header: {
     alignItems: 'center',
-    gap: 8,
+    marginTop: 10,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    fontFamily: 'System', // Or a custom font if available
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  divider: {
+    width: 40,
+    height: 2,
+    backgroundColor: '#D32F2F',
+    marginVertical: 8,
+  },
+  subtitle: {
+    color: '#666',
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  machineContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20,
+  },
+  machineFrame: {
+    padding: 10,
+    backgroundColor: '#111',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  slotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    height: 240, // 3 * 80
+    alignItems: 'center',
+    backgroundColor: '#000',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#222',
+  },
+  bolt: {
     position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#444',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  boltTL: { top: 6, left: 6 },
+  boltTR: { top: 6, right: 6 },
+  boltBL: { bottom: 6, left: 6 },
+  boltBR: { bottom: 6, right: 6 },
+  
+  resultContainer: {
+    alignItems: 'center',
+    minHeight: 80,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  resultText: {
+    textAlign: 'center',
+    fontSize: 22,
+    color: '#FFD700',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(255, 215, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  footer: {
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  spinButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#D32F2F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#D32F2F',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 8,
+    borderWidth: 4,
+    borderColor: '#B71C1C',
+  },
+  spinButtonInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  spinButtonDisabled: {
+    backgroundColor: '#333',
+    borderColor: '#222',
+    shadowOpacity: 0,
+  },
+  spinButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
 });
