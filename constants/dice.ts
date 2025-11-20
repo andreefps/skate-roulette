@@ -49,7 +49,6 @@ export const TRIES_DIE: DieFace[] = [
   { label: '1 TRY', value: '1 Try' },
   { label: '3 TRIES', value: '3 Tries' },
   { label: '5 TRIES', value: '5 Tries' },
-  { label: 'UNTIL\nLANDED', value: 'Until Landed' },
 ];
 
 export const FLATGROUND_SLOTS = [
@@ -65,6 +64,3 @@ export const LEDGE_SLOTS = [
   ROTATION_DIE,
   TRIES_DIE,
 ];
-
-// Default export for backward compatibility if needed, but we'll switch to named exports
-export const DICE_SLOTS = FLATGROUND_SLOTS;

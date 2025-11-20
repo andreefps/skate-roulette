@@ -1,12 +1,11 @@
 import * as Haptics from 'expo-haptics';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RouletteSlot } from '@/components/RouletteSlot';
 import { ThemedText } from '@/components/themed-text';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -14,7 +13,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function SkateRouletteScreen() {
-  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -150,12 +148,7 @@ export default function SkateRouletteScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor }]}>
         <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <ThemedText type="title" style={[styles.title, { color: textColor }]}>SKATE ROULETTE</ThemedText>
-            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsButton}>
-              <IconSymbol name="gear" size={24} color={textColor} />
-            </TouchableOpacity>
-          </View>
+          <ThemedText type="title" style={[styles.title, { color: textColor }]}>SKATE ROULETTE</ThemedText>
           <View style={[styles.divider, { backgroundColor: accentColor }]} />
           
           <View style={[styles.modeSwitcher, { backgroundColor: cardColor, borderColor }]}>
@@ -233,19 +226,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginTop: 10,
-    width: '100%',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    position: 'relative',
-  },
-  settingsButton: {
-    position: 'absolute',
-    right: 0,
-    padding: 8,
   },
   title: {
     fontSize: 28,

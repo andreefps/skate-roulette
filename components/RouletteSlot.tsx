@@ -17,7 +17,6 @@ import { ThemedText } from '@/components/themed-text';
 import { DieFace } from '@/constants/dice';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useThemeColor } from '@/hooks/use-theme-color';
 
 const ITEM_HEIGHT = 80; 
 
@@ -33,25 +32,17 @@ interface RouletteSlotProps {
 // Re-implementing with the "Render All" approach
 export function RouletteSlot({ items, targetIndex, isSpinning, onSpinStop, index }: RouletteSlotProps) {
   const colorScheme = useColorScheme() ?? 'light';
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
   const borderColor = Colors[colorScheme].border;
   
   const scrollY = useSharedValue(0);
   const itemHeight = ITEM_HEIGHT;
   const repeatCount = 12; // Increased to ensure we don't run out of items
   const totalListHeight = items.length * itemHeight;
-  const fullHeight = totalListHeight * repeatCount;
 
   useEffect(() => {
     if (isSpinning) {
-      // Reset to middle-ish to allow movement in both directions if needed, 
-      // but we only go down (negative Y).
-      // Let's start at a multiple of totalListHeight
-      const startOffset = -(Math.floor(repeatCount / 2) * totalListHeight);
-      // Actually, just keep current modulus
       const currentMod = scrollY.value % totalListHeight;
-      scrollY.value = currentMod - totalListHeight; // Reset to top-ish
+      scrollY.value = currentMod - totalListHeight;
 
       const speed = 1500 + (index * 200);
       
@@ -124,7 +115,7 @@ export function RouletteSlot({ items, targetIndex, isSpinning, onSpinStop, index
   );
 }
 
-const SlotItem = ({ index, item, scrollY, itemHeight, totalItems }: any) => {
+const SlotItem = ({ index, item, scrollY, itemHeight }: any) => {
   const animatedStyle = useAnimatedStyle(() => {
     // Calculate position relative to the center of the container
     // The container center is at Y=0 visually (if we center the view).

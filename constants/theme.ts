@@ -11,27 +11,27 @@ const tintColorDark = '#fff';
 export const Colors = {
   light: {
     text: '#1C1C1E',
-    background: '#F5F5F7', // Off-white
+    background: '#FAFAFA', // Softer off-white
     tint: tintColorLight,
     icon: '#8E8E93',
     tabIconDefault: '#8E8E93',
     tabIconSelected: tintColorLight,
     card: '#FFFFFF',
-    border: '#E5E5EA',
+    border: '#E0E0E0', // Softer border
     accent: '#E53935',
-    gold: '#B8860B', // Darker gold for light mode
+    gold: '#C9A227', // Warmer, less harsh gold
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#050505',
+    text: '#E8E8E8', // Softer white
+    background: '#121212', // Less extreme black (Material Design dark)
     tint: tintColorDark,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
-    card: '#111111',
-    border: '#333333',
-    accent: '#D32F2F',
-    gold: '#FFD700',
+    card: '#1E1E1E', // Softer card background
+    border: '#2C2C2C', // Softer border
+    accent: '#EF5350', // Slightly brighter red
+    gold: '#FFD54F', // Softer gold
   },
 };
 
